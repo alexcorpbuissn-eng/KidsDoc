@@ -14,7 +14,7 @@ async def main():
     await db.init_db()
 
     session = AiohttpSession(proxy="http://proxy.server:3128")
-    bot = Bot(token=config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML(session=session)))
+    bot = Bot(token=config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML), session=session)
     dp = Dispatcher()
     
     dp.include_router(router)
