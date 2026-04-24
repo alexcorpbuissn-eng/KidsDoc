@@ -6,13 +6,15 @@ from aiogram.enums import ParseMode
 import config
 import database as db
 from handlers import router
+from aiogram.client.session.aiohttp import AiohttpSession
 
 logging.basicConfig(level=logging.INFO)
 
 async def main():
     await db.init_db()
-    
-    bot = Bot(token=config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+    session = AiohttpSession(proxy="http://proxy.server:3128")
+    bot = Bot(token=config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML(session=session))
     dp = Dispatcher()
     
     dp.include_router(router)
