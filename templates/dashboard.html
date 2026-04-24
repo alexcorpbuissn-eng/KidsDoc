@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinic Bot Dashboard</title>
+    <title>{{ t.title }}</title>
     <style>
         :root {
             --bg-color: #0e1117;
@@ -25,9 +25,21 @@
             max-width: 1200px;
             margin: 0 auto;
         }
-        h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; }
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        h1 { font-size: 2.2rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
         h3 { font-size: 1.4rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; }
         hr { border: 0; border-top: 1px solid var(--border-color); margin: 2rem 0; }
+        
+        .lang-switcher select {
+            width: auto;
+            min-width: 120px;
+            padding: 0.4rem;
+        }
         
         .metrics-row {
             display: flex;
@@ -40,6 +52,7 @@
         }
         .metric-label { font-size: 0.9rem; color: var(--header-color); margin-bottom: 0.2rem; }
         .metric-value { font-size: 2rem; font-weight: 400; }
+        .star-rating { color: #facc15; font-size: 1.5rem; margin-left: 0.5rem; }
         
         .filter-section { margin-bottom: 1.5rem; }
         .filter-label { font-size: 0.9rem; margin-bottom: 0.5rem; display: block; }
@@ -121,7 +134,6 @@
 </head>
 <body>
     <div class="container">
-        <h1>🏥 Clinic Bot Dashboard</h1>
         
         {% if error %}
             <div class="error-state">
@@ -129,22 +141,46 @@
                 Details: {{ error }}
             </div>
         {% else %}
+            
+            <div class="header-row">
+                <h1>{{ t.title }}</h1>
+                <div class="lang-switcher">
+                    <form id="lang-form" action="/" method="GET" style="display:inline;">
+                        <input type="hidden" name="service" value="{{ selected_service }}">
+                        <select name="lang" onchange="document.getElementById('lang-form').submit()">
+                            <option value="en" {% if lang == 'en' %}selected{% endif %}>English 🇬🇧</option>
+                            <option value="ru" {% if lang == 'ru' %}selected{% endif %}>Русский 🇷🇺</option>
+                            <option value="uz" {% if lang == 'uz' %}selected{% endif %}>O'zbekcha 🇺🇿</option>
+                        </select>
+                    </form>
+                </div>
+            </div>
         
-            <h3>Quick Stats</h3>
+            <h3>{{ t.quick_stats }}</h3>
             <div class="metrics-row">
                 <div class="metric-box">
-                    <div class="metric-label">Total Users</div>
+                    <div class="metric-label">{{ t.total_users }}</div>
                     <div class="metric-value">{{ total_users }}</div>
                 </div>
                 <div class="metric-box">
-                    <div class="metric-label">Total Reviews</div>
+                    <div class="metric-label">{{ t.total_reviews }}</div>
                     <div class="metric-value">{{ total_reviews }}</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">{{ t.avg_rating }}</div>
+                    <div class="metric-value">
+                        {% if avg_rating > 0 %}
+                            {{ avg_rating }} <span class="star-rating">★</span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             
             <hr>
             
-            <h3>👥 Registered Users</h3>
+            <h3>{{ t.reg_users }}</h3>
             <div class="table-container">
                 <table>
                     <thead>
@@ -159,8 +195,8 @@
                         {% for user in users %}
                         <tr>
                             <td>{{ user.user_id }}</td>
-                            <td>{{ user.username or 'None' }}</td>
-                            <td>{{ user.first_name or 'None' }}</td>
+                            <td>{% if user.username %}@{{ user.username }}{% else %}-{% endif %}</td>
+                            <td>{{ user.first_name or '-' }}</td>
                             <td>{{ user.joined_date }}</td>
                         </tr>
                         {% endfor %}
@@ -170,11 +206,12 @@
             
             <hr>
             
-            <h3>⭐ Feedback & Reviews</h3>
+            <h3>{{ t.feedback }}</h3>
             
             <div class="filter-section">
-                <span class="filter-label">Select a Service Category to Filter:</span>
+                <span class="filter-label">{{ t.filter_label }}</span>
                 <form id="filter-form" action="/" method="GET">
+                    <input type="hidden" name="lang" value="{{ lang }}">
                     <select name="service" id="service-filter" onchange="document.getElementById('filter-form').submit()">
                         {% for srv in services %}
                         <option value="{{ srv }}" {% if srv == selected_service %}selected{% endif %}>{{ srv }}</option>
@@ -183,16 +220,15 @@
                 </form>
             </div>
             
-            <p><strong>Total Reviews for {{ selected_service }}:</strong> {{ filtered_reviews_count }}</p>
-            
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
                             <th>id</th>
                             <th>user_id</th>
+                            <th>username</th>
                             <th>service_name</th>
-                            <th>rating</th>
+                            <th>{{ t.rating }}</th>
                             <th>Review Text</th>
                             <th>review_date</th>
                         </tr>
@@ -202,9 +238,10 @@
                         <tr>
                             <td>{{ r.id }}</td>
                             <td>{{ r.user_id }}</td>
+                            <td>{% if r.username %}@{{ r.username }}{% else %}-{% endif %}</td>
                             <td>{{ r.service_name }}</td>
-                            <td>{{ r.rating }}</td>
-                            <td>{{ r.review_text[:100] }}{% if r.review_text|length > 100 %}...{% endif %}</td>
+                            <td>{{ r.rating }} ⭐</td>
+                            <td>{{ r.review_text[:80] }}{% if r.review_text|length > 80 %}...{% endif %}</td>
                             <td>{{ r.review_date }}</td>
                         </tr>
                         {% endfor %}
@@ -212,17 +249,17 @@
                 </table>
             </div>
             
-            <h3>Detailed Reviews</h3>
+            <h3>{{ t.detailed_reviews }}</h3>
             {% if reviews|length == 0 %}
-                <div class="empty-state">No reviews yet for {{ selected_service }}.</div>
+                <div class="empty-state">{{ t.no_reviews }} {{ selected_service }}.</div>
             {% else %}
                 {% for r in reviews %}
                 <div class="review-card">
                     <div class="avatar">👤</div>
                     <div class="card-content">
                         <strong>{{ r.service_name|upper }}</strong> 
-                        (User: {% if r.first_name %}{{ r.first_name }}{% else %}Unknown User{% endif %} {% if r.username %}@{{ r.username }}{% endif %})<br>
-                        <em>{{ r.review_date }}</em> | Rating: {{ r.rating }} ⭐
+                        ({{ t.user }}: {% if r.first_name %}{{ r.first_name }}{% else %}-{% endif %} {% if r.username %}@{{ r.username }}{% endif %})<br>
+                        <em>{{ r.review_date }}</em> | {{ t.rating }}: {{ r.rating }} ⭐
                         <div class="review-info" style="margin-top: 0.5rem;">
                             {{ r.review_text }}
                         </div>
