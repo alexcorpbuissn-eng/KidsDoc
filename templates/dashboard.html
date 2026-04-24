@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinic Bot Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0e1117;
+            --text-color: #fafafa;
+            --secondary-bg: #262730;
+            --primary: #ff4b4b;
+            --border-color: rgba(250, 250, 250, 0.2);
+            --header-color: #a1a1aa;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: "Source Sans Pro", sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; }
+        h3 { font-size: 1.4rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; }
+        hr { border: 0; border-top: 1px solid var(--border-color); margin: 2rem 0; }
+        
+        .metrics-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .metric-box {
+            padding: 0;
+            flex: 1;
+        }
+        .metric-label { font-size: 0.9rem; color: var(--header-color); margin-bottom: 0.2rem; }
+        .metric-value { font-size: 2rem; font-weight: 400; }
+        
+        .filter-section { margin-bottom: 1.5rem; }
+        .filter-label { font-size: 0.9rem; margin-bottom: 0.5rem; display: block; }
+        select {
+            background-color: var(--secondary-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem;
+            border-radius: 0.25rem;
+            width: 100%;
+            max-width: 400px;
+            font-size: 1rem;
+        }
+        select:focus { outline: none; border-color: var(--primary); }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.25rem;
+            background-color: var(--secondary-bg);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th { font-weight: 500; color: var(--header-color); border-bottom: 2px solid var(--border-color); }
+        tr:last-child td { border-bottom: none; }
+        
+        .review-card {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .avatar {
+            width: 30px;
+            height: 30px;
+            background-color: var(--secondary-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+        .card-content {
+            flex: 1;
+        }
+        .review-info {
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border-left: 4px solid #0068c9;
+        }
+        
+        .error-state {
+            padding: 1rem;
+            background-color: rgba(255, 75, 75, 0.2);
+            color: #ff4b4b;
+            border-radius: 0.25rem;
+            margin-bottom: 2rem;
+            border: 1px solid #ff4b4b;
+        }
+        .empty-state {
+            padding: 1rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-color);
+            border-radius: 0.25rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 Clinic Bot Dashboard</h1>
+        
+        {% if error %}
+            <div class="error-state">
+                <strong>Error connecting to database.</strong> Please make sure the bot has run at least once to create the 'clinic_bot.db' file.<br>
+                Details: {{ error }}
+            </div>
+        {% else %}
+        
+            <h3>Quick Stats</h3>
+            <div class="metrics-row">
+                <div class="metric-box">
+                    <div class="metric-label">Total Users</div>
+                    <div class="metric-value">{{ total_users }}</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Total Reviews</div>
+                    <div class="metric-value">{{ total_reviews }}</div>
+                </div>
+            </div>
+            
+            <hr>
+            
+            <h3>👥 Registered Users</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>user_id</th>
+                            <th>username</th>
+                            <th>first_name</th>
+                            <th>joined_date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.user_id }}</td>
+                            <td>{{ user.username or 'None' }}</td>
+                            <td>{{ user.first_name or 'None' }}</td>
+                            <td>{{ user.joined_date }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <hr>
+            
+            <h3>⭐ Feedback & Reviews</h3>
+            
+            <div class="filter-section">
+                <span class="filter-label">Select a Service Category to Filter:</span>
+                <form id="filter-form" action="/" method="GET">
+                    <select name="service" id="service-filter" onchange="document.getElementById('filter-form').submit()">
+                        {% for srv in services %}
+                        <option value="{{ srv }}" {% if srv == selected_service %}selected{% endif %}>{{ srv }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+            
+            <p><strong>Total Reviews for {{ selected_service }}:</strong> {{ filtered_reviews_count }}</p>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>id</th>
+                            <th>user_id</th>
+                            <th>service_name</th>
+                            <th>rating</th>
+                            <th>Review Text</th>
+                            <th>review_date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in reviews %}
+                        <tr>
+                            <td>{{ r.id }}</td>
+                            <td>{{ r.user_id }}</td>
+                            <td>{{ r.service_name }}</td>
+                            <td>{{ r.rating }}</td>
+                            <td>{{ r.review_text[:100] }}{% if r.review_text|length > 100 %}...{% endif %}</td>
+                            <td>{{ r.review_date }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>Detailed Reviews</h3>
+            {% if reviews|length == 0 %}
+                <div class="empty-state">No reviews yet for {{ selected_service }}.</div>
+            {% else %}
+                {% for r in reviews %}
+                <div class="review-card">
+                    <div class="avatar">👤</div>
+                    <div class="card-content">
+                        <strong>{{ r.service_name|upper }}</strong> 
+                        (User: {% if r.first_name %}{{ r.first_name }}{% else %}Unknown User{% endif %} {% if r.username %}@{{ r.username }}{% endif %})<br>
+                        <em>{{ r.review_date }}</em> | Rating: {{ r.rating }} ⭐
+                        <div class="review-info" style="margin-top: 0.5rem;">
+                            {{ r.review_text }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+            
+        {% endif %}
+    </div>
+</body>
+</html>
