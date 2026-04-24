@@ -1,16 +1,61 @@
-from flask import Flask, render_template, request
-import sqlite3
-import os
+"""
+Unified Flask + aiogram Webhook application for Kids Doctor Clinic.
+Merges the dashboard (Flask) and the Telegram bot (aiogram v3) into a single
+WSGI-compatible app that runs on PythonAnywhere's free tier.
 
+Dashboard:  GET  /
+Webhook:    POST /webhook
+Set Hook:   GET  /set_webhook
+"""
+
+import asyncio
+import logging
+import os
+import sqlite3
+
+from flask import Flask, render_template, request, jsonify
+
+# --- aiogram imports ---
+from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.enums import ParseMode
+from aiogram.types import Update
+
+# --- Project imports (handlers, database, config) ---
+import config
+import database as db
+from handlers import router
+
+# =========================================================================
+#  SETUP
+# =========================================================================
+
+logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 
-# Use PythonAnywhere path if running there
+# --- Database path ---
 if os.path.exists("/home/KidsDoc"):
     DB_NAME = "/home/KidsDoc/KidsDoc/clinic_bot.db"
 else:
     DB_NAME = "clinic_bot.db"
 
-# Language Translations
+# --- Bot & Dispatcher (created once at module level) ---
+WEBHOOK_URL = "https://KidsDoc.pythonanywhere.com/webhook"
+
+session = AiohttpSession(proxy="http://proxy.server:3128")
+bot = Bot(
+    token=config.BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    session=session,
+)
+dp = Dispatcher()
+dp.include_router(router)
+
+# Initialize the database tables on first import
+asyncio.run(db.init_db())
+
+# --- Dashboard translations ---
 TRANSLATIONS = {
     'en': {
         'title': '🏥 Clinic Bot Dashboard',
@@ -47,78 +92,92 @@ TRANSLATIONS = {
         'quick_stats': 'Qisqacha statistika',
         'total_users': 'Jami foydalanuvchilar',
         'total_reviews': 'Jami sharhlar',
-        'avg_rating': 'O‘rtacha reyting',
-        'reg_users': '👥 Ro‘yxatdan o‘tgan foydalanuvchilar',
+        'avg_rating': "O'rtacha reyting",
+        'reg_users': "👥 Ro'yxatdan o'tgan foydalanuvchilar",
         'feedback': '⭐ Sharhlar va baholar',
         'filter_label': 'Filtrlash uchun xizmat turini tanlang:',
         'all_services': 'Barcha xizmatlar',
         'detailed_reviews': 'Batafsil sharhlar',
-        'no_reviews': 'Hozircha sharhlar yo‘q:',
+        'no_reviews': "Hozircha sharhlar yo'q:",
         'user': 'Foydalanuvchi',
         'rating': 'Baho'
     }
 }
+
+
+# =========================================================================
+#  HELPER — synchronous DB connection (for the Flask dashboard)
+# =========================================================================
 
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     return conn
 
+
+# =========================================================================
+#  ROUTE 1 — DASHBOARD  (GET /)
+# =========================================================================
+
 @app.route('/')
 def dashboard():
     try:
         conn = get_db_connection()
-        
-        # Get language
+
+        # Language
         lang = request.args.get('lang', 'en')
         if lang not in TRANSLATIONS:
             lang = 'en'
         t = TRANSLATIONS[lang]
-        
-        # Get total users
+
+        # Users
         users = conn.execute('SELECT * FROM users').fetchall()
         total_users = len(users)
-        
-        # Get unique services for dropdown
-        services_query = conn.execute('SELECT DISTINCT service_name FROM reviews WHERE service_name IS NOT NULL').fetchall()
-        services = [t['all_services']] + sorted([row['service_name'] for row in services_query if row['service_name']])
-        
-        # Get selected service filter
+
+        # Services dropdown
+        services_query = conn.execute(
+            'SELECT DISTINCT service_name FROM reviews WHERE service_name IS NOT NULL'
+        ).fetchall()
+        services = [t['all_services']] + sorted(
+            [row['service_name'] for row in services_query if row['service_name']]
+        )
+
+        # Filter
         selected_service = request.args.get('service', t['all_services'])
-        
-        # Build reviews query
-        if selected_service == t['all_services'] or selected_service == 'All Services':
+
+        # Reviews
+        if selected_service in (t['all_services'], 'All Services'):
             reviews = conn.execute('''
-                SELECT r.id, r.user_id, u.username, u.first_name, 
-                       r.service_name, r.rating, r.review_text, r.review_date 
-                FROM reviews r 
+                SELECT r.id, r.user_id, u.username, u.first_name,
+                       r.service_name, r.rating, r.review_text, r.review_date
+                FROM reviews r
                 LEFT JOIN users u ON r.user_id = u.user_id
             ''').fetchall()
         else:
             reviews = conn.execute('''
-                SELECT r.id, r.user_id, u.username, u.first_name, 
-                       r.service_name, r.rating, r.review_text, r.review_date 
-                FROM reviews r 
+                SELECT r.id, r.user_id, u.username, u.first_name,
+                       r.service_name, r.rating, r.review_text, r.review_date
+                FROM reviews r
                 LEFT JOIN users u ON r.user_id = u.user_id
                 WHERE r.service_name = ?
             ''', (selected_service,)).fetchall()
-            
+
         total_reviews_filtered = len(reviews)
         all_reviews_count = conn.execute('SELECT COUNT(*) FROM reviews').fetchone()[0]
-        
-        # Calculate Average Rating
+
+        # Average rating
         avg_rating = 0
         if total_reviews_filtered > 0:
-            total_score = sum([r['rating'] for r in reviews if r['rating']])
+            total_score = sum(r['rating'] for r in reviews if r['rating'])
             avg_rating = round(total_score / total_reviews_filtered, 2)
-        
+
         conn.close()
-        
+
         return render_template(
-            'dashboard.html', 
-            users=users, 
-            reviews=reviews, 
-            total_users=total_users, 
+            'dashboard.html',
+            users=users,
+            reviews=reviews,
+            total_users=total_users,
             total_reviews=all_reviews_count,
             filtered_reviews_count=total_reviews_filtered,
             services=services,
@@ -126,10 +185,48 @@ def dashboard():
             avg_rating=avg_rating,
             lang=lang,
             t=t,
-            error=None
+            error=None,
         )
     except Exception as e:
-        return render_template('dashboard.html', error=str(e), t=TRANSLATIONS['en'], lang='en')
+        return render_template(
+            'dashboard.html', error=str(e), t=TRANSLATIONS['en'], lang='en'
+        )
+
+
+# =========================================================================
+#  ROUTE 2 — WEBHOOK LISTENER  (POST /webhook)
+# =========================================================================
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    """Receive Telegram updates and feed them to the aiogram Dispatcher."""
+    try:
+        json_data = request.get_json(force=True)
+        update = Update.model_validate(json_data, context={"bot": bot})
+        asyncio.run(dp.feed_update(bot=bot, update=update))
+        return jsonify({"ok": True}), 200
+    except Exception as e:
+        logging.error(f"Webhook error: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# =========================================================================
+#  ROUTE 3 — SET WEBHOOK  (GET /set_webhook)
+# =========================================================================
+
+@app.route('/set_webhook')
+def set_webhook():
+    """Visit this URL once to register the webhook with Telegram."""
+    try:
+        asyncio.run(bot.set_webhook(url=WEBHOOK_URL))
+        return f"✅ Webhook successfully set to:<br><code>{WEBHOOK_URL}</code>", 200
+    except Exception as e:
+        return f"❌ Failed to set webhook:<br>{e}", 500
+
+
+# =========================================================================
+#  LOCAL DEVELOPMENT — run with `python app.py`
+# =========================================================================
 
 if __name__ == '__main__':
     app.run(debug=True, port=8501)
