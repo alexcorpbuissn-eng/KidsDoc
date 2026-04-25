@@ -6,6 +6,7 @@ TRANSLATIONS = {
         'services': 'Xizmatlar va Ish vaqti⏰',
         'review': 'Sharh qoldirish⭐',
         'change_lang': 'Tilni o\'zgartirish🌐',
+        'change_name': 'Ismni o\'zgartirish✏️',
         
         'about_text': '🏥 <b>Kids Doctor Klinikasi</b>\n\nBizning maqsadimiz — farzandlaringiz sog\'lig\'ini asrash va ularga eng yaxshi tibbiy xizmatlarni taqdim etishdir! ✨\n\n📍 <b>Manzil:</b> Qo\'rg\'ontepa ko\'chasi 141, Humo mahallasi, Yangihayot tumani, Toshkent shahri. (Mo\'ljal: 66-poliklinika).\n📞 <b>Telefon:</b> +998 94 007 30 03',
         
@@ -25,8 +26,11 @@ TRANSLATIONS = {
         'review_saved': 'Sharhingiz uchun rahmat!',
         'choose_language': 'Tilni tanlang / Choose language / Выберите язык:',
 
-        'ask_first_name': '🏥 <b>Kids Doctor klinikasiga xush kelibsiz!</b>\n\nSharhlaringizni bemor ma\'lumotlariga moslashtirish uchun, iltimos, <b>haqiqiy ismingizni</b> kiriting:',
+        'ask_first_name': 'Sharhlaringizni bemor ma\'lumotlariga moslashtirish uchun, iltimos, <b>haqiqiy ismingizni</b> kiriting:',
         'ask_surname': 'Rahmat! Endi, iltimos, <b>familiyangizni</b> kiriting:',
+        'ask_new_first_name': '✏️ Iltimos, yangi <b>ismingizni</b> kiriting:',
+        'ask_new_surname': 'Endi yangi <b>familiyangizni</b> kiriting:',
+        'name_updated': '✅ Ismingiz yangilandi: <b>{first_name} {surname}</b>',
         'registration_complete': 'Rahmat, <b>{first_name} {surname}</b>! 👋\nEndi tilni tanlang:'
     },
     'en': {
@@ -36,6 +40,7 @@ TRANSLATIONS = {
         'services': 'Services & Hours⏰',
         'review': 'Leave a Review⭐',
         'change_lang': 'Change Language🌐',
+        'change_name': 'Edit Name✏️',
         
         'about_text': '🏥 <b>Kids Doctor Clinic</b>\n\nOur goal is to protect your children\'s health and provide them with the best medical services! ✨\n\n📍 <b>Location:</b> Kurgan-Tepa Street 141, Mahalla Humo, Yangihayot District, Tashkent. (Landmark: Polyclinic No. 66).\n📞 <b>Phone:</b> +998 94 007 30 03',
         
@@ -55,8 +60,11 @@ TRANSLATIONS = {
         'review_saved': 'Thank you for your review!',
         'choose_language': 'Choose language / Tilni tanlang / Выберите язык:',
 
-        'ask_first_name': '🏥 <b>Welcome to Kids Doctor Clinic!</b>\n\nTo ensure we can match your feedback with your patient records, please enter your <b>real First Name</b>:',
+        'ask_first_name': 'To match your feedback with patient records, please enter your <b>real First Name</b>:',
         'ask_surname': 'Thank you! Now, please enter your <b>Surname (Last Name)</b>:',
+        'ask_new_first_name': '✏️ Please enter your new <b>First Name</b>:',
+        'ask_new_surname': 'Now enter your new <b>Surname</b>:',
+        'name_updated': '✅ Your name has been updated: <b>{first_name} {surname}</b>',
         'registration_complete': 'Thank you, <b>{first_name} {surname}</b>! 👋\nNow please choose your language:'
     },
     'ru': {
@@ -66,6 +74,7 @@ TRANSLATIONS = {
         'services': 'Услуги и часы работы⏰',
         'review': 'Оставить отзыв⭐',
         'change_lang': 'Сменить язык🌐',
+        'change_name': 'Изменить имя✏️',
         
         'about_text': '🏥 <b>Клиника Kids Doctor</b>\n\nНаша цель — забота о здоровье ваших детей и предоставление лучших медицинских услуг! ✨\n\n📍 <b>Адрес:</b> ул. Курган-Тепа, 141, Махалля Хумо, Янгихаётский район, г. Ташкент. (Ориентир: Поликлиника № 66).\n📞 <b>Телефон:</b> +998 94 007 30 03',
         
@@ -85,8 +94,11 @@ TRANSLATIONS = {
         'review_saved': 'Спасибо за ваш отзыв!',
         'choose_language': 'Выберите язык / Choose language / Tilni tanlang:',
 
-        'ask_first_name': '🏥 <b>Добро пожаловать в клинику Kids Doctor!</b>\n\nЧтобы мы могли связать ваш отзыв с данными пациента, пожалуйста, введите ваше <b>настоящее имя</b>:',
-        'ask_surname': 'Спасибо! Теперь, пожалуйста, введите вашу <b>фамилию</b>:',
+        'ask_first_name': 'Чтобы связать ваш отзыв с данными пациента, введите ваше <b>настоящее имя</b>:',
+        'ask_surname': 'Спасибо! Теперь введите вашу <b>фамилию</b>:',
+        'ask_new_first_name': '✏️ Введите ваше новое <b>имя</b>:',
+        'ask_new_surname': 'Теперь введите вашу новую <b>фамилию</b>:',
+        'name_updated': '✅ Ваше имя обновлено: <b>{first_name} {surname}</b>',
         'registration_complete': 'Спасибо, <b>{first_name} {surname}</b>! 👋\nТеперь выберите язык:'
     }
 }

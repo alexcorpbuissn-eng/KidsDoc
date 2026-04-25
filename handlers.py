@@ -11,9 +11,13 @@ from locales import _
 router = Router()
 
 class RegistrationFSM(StatesGroup):
+    choosing_language = State()
     entering_first_name = State()
     entering_surname = State()
-    choosing_language = State()
+
+class EditNameFSM(StatesGroup):
+    entering_first_name = State()
+    entering_surname = State()
 
 class ReviewFSM(StatesGroup):
     choosing_service = State()
@@ -22,36 +26,27 @@ class ReviewFSM(StatesGroup):
 
 
 # =====================================================================
-#  /start — Always asks for name if not registered, greets by name if known
+#  /start — Returning users go straight to menu, new users register
 # =====================================================================
 
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     fully_registered = await db.is_fully_registered(message.from_user.id)
     
-    if not fully_registered:
-        # New user OR user without surname → ask for names
-        await message.answer(
-            "🏥 <b>Welcome to Kids Doctor Clinic!</b>\n"
-            "To match your feedback with patient records, "
-            "please enter your <b>real First Name</b>:\n\n"
-            "🏥 <b>Kids Doctor klinikasiga xush kelibsiz!</b>\n"
-            "Sharhlaringizni bemor ma'lumotlariga moslashtirish uchun, "
-            "iltimos, <b>haqiqiy ismingizni</b> kiriting:\n\n"
-            "🏥 <b>Добро пожаловать в клинику Kids Doctor!</b>\n"
-            "Чтобы связать ваш отзыв с данными пациента, "
-            "введите ваше <b>настоящее имя</b>:"
-        )
-        await state.set_state(RegistrationFSM.entering_first_name)
-    else:
-        # Returning user with full registration → personalized greeting + language
+    if fully_registered:
+        # ✅ Returning user → instant personalized welcome + main menu
+        lang = await db.get_user_language(message.from_user.id)
         user_info = await db.get_user_info(message.from_user.id)
         name = user_info['first_name'] if user_info else ''
-        
+        welcome = _('welcome_name', lang).format(name=name)
+        await message.answer(welcome, reply_markup=kb.main_menu(lang))
+        await state.clear()
+    else:
+        # 🆕 New user → language selection first
         await message.answer(
-            f"👋 <b>Welcome back, {name}!</b>\n"
-            f"👋 <b>Xush kelibsiz, {name}!</b>\n"
-            f"👋 <b>С возвращением, {name}!</b>\n\n"
+            "🏥 <b>Welcome to Kids Doctor Clinic!</b>\n"
+            "🏥 <b>Kids Doctor klinikasiga xush kelibsiz!</b>\n"
+            "🏥 <b>Добро пожаловать в клинику Kids Doctor!</b>\n\n"
             "Please choose your language:\n"
             "Iltimos, tilni tanlang:\n"
             "Пожалуйста, выберите язык:",
@@ -61,43 +56,7 @@ async def cmd_start(message: Message, state: FSMContext):
 
 
 # =====================================================================
-#  Registration FSM — First Name → Surname → Language
-# =====================================================================
-
-@router.message(RegistrationFSM.entering_first_name)
-async def process_first_name(message: Message, state: FSMContext):
-    await state.update_data(first_name=message.text.strip())
-    await message.answer(
-        "Now, please enter your <b>Surname (Last Name)</b>:\n\n"
-        "Endi, iltimos, <b>familiyangizni</b> kiriting:\n\n"
-        "Теперь, пожалуйста, введите вашу <b>фамилию</b>:"
-    )
-    await state.set_state(RegistrationFSM.entering_surname)
-
-@router.message(RegistrationFSM.entering_surname)
-async def process_surname(message: Message, state: FSMContext):
-    data = await state.get_data()
-    first_name = data['first_name']
-    surname = message.text.strip()
-    
-    # Save the user with their real names
-    await db.register_user(
-        user_id=message.from_user.id,
-        username=message.from_user.username,
-        first_name=first_name,
-        surname=surname
-    )
-    
-    await message.answer(
-        f"✅ <b>{first_name} {surname}</b>, thank you!\n\n"
-        "Пожалуйста, выберите язык:\nPlease choose your language:\nIltimos, tilni tanlang:",
-        reply_markup=kb.initial_language_selection()
-    )
-    await state.set_state(RegistrationFSM.choosing_language)
-
-
-# =====================================================================
-#  Language Selection — personalized welcome with name
+#  Language Selection → for new users, proceed to name collection
 # =====================================================================
 
 @router.message(RegistrationFSM.choosing_language, F.text.in_(["Русский 🇷🇺", "English 🇬🇧", "O'zbekcha 🇺🇿"]))
@@ -109,16 +68,109 @@ async def language_chosen(message: Message, state: FSMContext):
     }
     lang = lang_map[message.text]
     await db.set_user_language(message.from_user.id, lang)
+    await state.update_data(lang=lang)
     
-    # Fetch user name for personalized welcome
-    user_info = await db.get_user_info(message.from_user.id)
-    if user_info and user_info['first_name']:
-        name = user_info['first_name']
+    fully_registered = await db.is_fully_registered(message.from_user.id)
+    
+    if fully_registered:
+        # Returning user just changing language → welcome + menu
+        user_info = await db.get_user_info(message.from_user.id)
+        name = user_info['first_name'] if user_info else ''
         welcome = _('welcome_name', lang).format(name=name)
+        await message.answer(welcome, reply_markup=kb.main_menu(lang))
+        await state.clear()
     else:
-        welcome = _('welcome', lang)
+        # New user → ask for first name (keyboard removed!)
+        await message.answer(
+            _('ask_first_name', lang),
+            reply_markup=ReplyKeyboardRemove()
+        )
+        await state.set_state(RegistrationFSM.entering_first_name)
+
+
+# =====================================================================
+#  Registration — First Name → Surname → Welcome + Menu
+# =====================================================================
+
+@router.message(RegistrationFSM.entering_first_name)
+async def process_first_name(message: Message, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get('lang', 'uz')
     
+    await state.update_data(first_name=message.text.strip())
+    await message.answer(
+        _('ask_surname', lang),
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await state.set_state(RegistrationFSM.entering_surname)
+
+@router.message(RegistrationFSM.entering_surname)
+async def process_surname(message: Message, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get('lang', 'uz')
+    first_name = data['first_name']
+    surname = message.text.strip()
+    
+    # Save the user
+    await db.register_user(
+        user_id=message.from_user.id,
+        username=message.from_user.username,
+        first_name=first_name,
+        surname=surname
+    )
+    
+    # Show personalized welcome + main menu immediately
+    welcome = _('welcome_name', lang).format(name=first_name)
     await message.answer(welcome, reply_markup=kb.main_menu(lang))
+    await state.clear()
+
+
+# =====================================================================
+#  Edit Name — allows users to fix their first name and surname
+# =====================================================================
+
+@router.message(F.text.in_([
+    _('change_name', 'uz'), _('change_name', 'en'), _('change_name', 'ru')
+]))
+async def handle_change_name(message: Message, state: FSMContext):
+    lang = await db.get_user_language(message.from_user.id)
+    await state.update_data(lang=lang)
+    await message.answer(
+        _('ask_new_first_name', lang),
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await state.set_state(EditNameFSM.entering_first_name)
+
+@router.message(EditNameFSM.entering_first_name)
+async def edit_first_name(message: Message, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get('lang', 'uz')
+    
+    await state.update_data(first_name=message.text.strip())
+    await message.answer(
+        _('ask_new_surname', lang),
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await state.set_state(EditNameFSM.entering_surname)
+
+@router.message(EditNameFSM.entering_surname)
+async def edit_surname(message: Message, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get('lang', 'uz')
+    first_name = data['first_name']
+    surname = message.text.strip()
+    
+    # Update the user's names
+    await db.register_user(
+        user_id=message.from_user.id,
+        username=message.from_user.username,
+        first_name=first_name,
+        surname=surname
+    )
+    
+    # Confirm + return to menu
+    confirm = _('name_updated', lang).format(first_name=first_name, surname=surname)
+    await message.answer(confirm, reply_markup=kb.main_menu(lang))
     await state.clear()
 
 

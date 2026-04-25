@@ -240,7 +240,7 @@
                     <tbody>
                         {% for r in reviews %}
                         <tr>
-                            <td>{{ r.id }}</td>
+                            <td>{{ loop.index }}</td>
                             <td>{{ r.first_name or '-' }}</td>
                             <td>{{ r.surname or '-' }}</td>
                             <td>{{ r.service_name }}</td>

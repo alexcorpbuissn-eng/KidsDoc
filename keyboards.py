@@ -11,7 +11,8 @@ def initial_language_selection() -> ReplyKeyboardMarkup:
 def main_menu(lang: str) -> ReplyKeyboardMarkup:
     kb = [
         [KeyboardButton(text=_( 'about', lang)), KeyboardButton(text=_( 'services', lang))],
-        [KeyboardButton(text=_( 'review', lang)), KeyboardButton(text=_( 'change_lang', lang))]
+        [KeyboardButton(text=_( 'review', lang)), KeyboardButton(text=_( 'change_lang', lang))],
+        [KeyboardButton(text=_( 'change_name', lang))]
     ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
