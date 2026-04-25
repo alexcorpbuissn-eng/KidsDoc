@@ -68,6 +68,27 @@ async def user_exists(user_id: int) -> bool:
             row = await cursor.fetchone()
             return row is not None
 
+async def get_user_info(user_id: int) -> dict:
+    """Fetch user's first_name and surname. Returns None if user doesn't exist."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            'SELECT first_name, surname FROM users WHERE user_id = ?', (user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return {'first_name': row[0], 'surname': row[1]}
+            return None
+
+async def is_fully_registered(user_id: int) -> bool:
+    """Check if user has completed the full name registration (has surname)."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            'SELECT surname FROM users WHERE user_id = ? AND surname IS NOT NULL AND surname != ""',
+            (user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row is not None
+
 async def register_user(user_id: int, username: str, first_name: str, surname: str = None):
     """Full registration — inserts new user or updates all fields."""
     async with aiosqlite.connect(DB_NAME) as db:

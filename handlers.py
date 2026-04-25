@@ -22,15 +22,15 @@ class ReviewFSM(StatesGroup):
 
 
 # =====================================================================
-#  /start — Polite registration for new users, language select for returning
+#  /start — Always asks for name if not registered, greets by name if known
 # =====================================================================
 
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
-    is_existing = await db.user_exists(message.from_user.id)
+    fully_registered = await db.is_fully_registered(message.from_user.id)
     
-    if not is_existing:
-        # New user → collect real name first (trilingual prompt)
+    if not fully_registered:
+        # New user OR user without surname → ask for names
         await message.answer(
             "🏥 <b>Welcome to Kids Doctor Clinic!</b>\n"
             "To match your feedback with patient records, "
@@ -44,9 +44,17 @@ async def cmd_start(message: Message, state: FSMContext):
         )
         await state.set_state(RegistrationFSM.entering_first_name)
     else:
-        # Returning user → language selection
+        # Returning user with full registration → personalized greeting + language
+        user_info = await db.get_user_info(message.from_user.id)
+        name = user_info['first_name'] if user_info else ''
+        
         await message.answer(
-            "Пожалуйста, выберите язык:\n\nPlease choose your language:\n\nIltimos, tilni tanlang:",
+            f"👋 <b>Welcome back, {name}!</b>\n"
+            f"👋 <b>Xush kelibsiz, {name}!</b>\n"
+            f"👋 <b>С возвращением, {name}!</b>\n\n"
+            "Please choose your language:\n"
+            "Iltimos, tilni tanlang:\n"
+            "Пожалуйста, выберите язык:",
             reply_markup=kb.initial_language_selection()
         )
         await state.set_state(RegistrationFSM.choosing_language)
@@ -89,7 +97,7 @@ async def process_surname(message: Message, state: FSMContext):
 
 
 # =====================================================================
-#  Language Selection
+#  Language Selection — personalized welcome with name
 # =====================================================================
 
 @router.message(RegistrationFSM.choosing_language, F.text.in_(["Русский 🇷🇺", "English 🇬🇧", "O'zbekcha 🇺🇿"]))
@@ -101,7 +109,16 @@ async def language_chosen(message: Message, state: FSMContext):
     }
     lang = lang_map[message.text]
     await db.set_user_language(message.from_user.id, lang)
-    await message.answer(_('welcome', lang), reply_markup=kb.main_menu(lang))
+    
+    # Fetch user name for personalized welcome
+    user_info = await db.get_user_info(message.from_user.id)
+    if user_info and user_info['first_name']:
+        name = user_info['first_name']
+        welcome = _('welcome_name', lang).format(name=name)
+    else:
+        welcome = _('welcome', lang)
+    
+    await message.answer(welcome, reply_markup=kb.main_menu(lang))
     await state.clear()
 
 

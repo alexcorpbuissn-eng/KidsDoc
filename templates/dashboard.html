@@ -229,7 +229,8 @@
                     <thead>
                         <tr>
                             <th>{{ t.th_id }}</th>
-                            <th>{{ t.th_name }}</th>
+                            <th>{{ t.th_first_name }}</th>
+                            <th>{{ t.th_surname }}</th>
                             <th>{{ t.th_service }}</th>
                             <th>{{ t.rating }}</th>
                             <th>{{ t.th_review_text }}</th>
@@ -240,7 +241,8 @@
                         {% for r in reviews %}
                         <tr>
                             <td>{{ r.id }}</td>
-                            <td>{% if r.first_name %}{{ r.first_name }}{% endif %} {% if r.surname %}{{ r.surname }}{% endif %}{% if not r.first_name and not r.surname %}-{% endif %}</td>
+                            <td>{{ r.first_name or '-' }}</td>
+                            <td>{{ r.surname or '-' }}</td>
                             <td>{{ r.service_name }}</td>
                             <td>{{ r.rating }} ⭐</td>
                             <td>{{ r.review_text[:80] }}{% if r.review_text|length > 80 %}...{% endif %}</td>

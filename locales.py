@@ -1,6 +1,7 @@
 TRANSLATIONS = {
     'uz': {
         'welcome': 'Xush kelibsiz! Iltimos, menyudan tanlang:',
+        'welcome_name': '👋 Xush kelibsiz, <b>{name}</b>! Iltimos, menyudan tanlang:',
         'about': 'Klinika haqida🏥',
         'services': 'Xizmatlar va Ish vaqti⏰',
         'review': 'Sharh qoldirish⭐',
@@ -30,6 +31,7 @@ TRANSLATIONS = {
     },
     'en': {
         'welcome': 'Welcome! Please choose from the menu:',
+        'welcome_name': '👋 Welcome, <b>{name}</b>! Please choose from the menu:',
         'about': 'About Clinic🏥',
         'services': 'Services & Hours⏰',
         'review': 'Leave a Review⭐',
@@ -59,6 +61,7 @@ TRANSLATIONS = {
     },
     'ru': {
         'welcome': 'Добро пожаловать! Пожалуйста, выберите в меню:',
+        'welcome_name': '👋 Добро пожаловать, <b>{name}</b>! Пожалуйста, выберите в меню:',
         'about': 'О клинике🏥',
         'services': 'Услуги и часы работы⏰',
         'review': 'Оставить отзыв⭐',
