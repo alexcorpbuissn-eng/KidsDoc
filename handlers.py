@@ -11,6 +11,8 @@ from locales import _
 router = Router()
 
 class RegistrationFSM(StatesGroup):
+    entering_first_name = State()
+    entering_surname = State()
     choosing_language = State()
 
 class ReviewFSM(StatesGroup):
@@ -18,20 +20,77 @@ class ReviewFSM(StatesGroup):
     choosing_rating = State()
     writing_comment = State()
 
+
+# =====================================================================
+#  /start — Polite registration for new users, language select for returning
+# =====================================================================
+
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
-    # Register the user in the database
+    is_existing = await db.user_exists(message.from_user.id)
+    
+    if not is_existing:
+        # New user → collect real name first (trilingual prompt)
+        await message.answer(
+            "🏥 <b>Welcome to Kids Doctor Clinic!</b>\n"
+            "To match your feedback with patient records, "
+            "please enter your <b>real First Name</b>:\n\n"
+            "🏥 <b>Kids Doctor klinikasiga xush kelibsiz!</b>\n"
+            "Sharhlaringizni bemor ma'lumotlariga moslashtirish uchun, "
+            "iltimos, <b>haqiqiy ismingizni</b> kiriting:\n\n"
+            "🏥 <b>Добро пожаловать в клинику Kids Doctor!</b>\n"
+            "Чтобы связать ваш отзыв с данными пациента, "
+            "введите ваше <b>настоящее имя</b>:"
+        )
+        await state.set_state(RegistrationFSM.entering_first_name)
+    else:
+        # Returning user → language selection
+        await message.answer(
+            "Пожалуйста, выберите язык:\n\nPlease choose your language:\n\nIltimos, tilni tanlang:",
+            reply_markup=kb.initial_language_selection()
+        )
+        await state.set_state(RegistrationFSM.choosing_language)
+
+
+# =====================================================================
+#  Registration FSM — First Name → Surname → Language
+# =====================================================================
+
+@router.message(RegistrationFSM.entering_first_name)
+async def process_first_name(message: Message, state: FSMContext):
+    await state.update_data(first_name=message.text.strip())
+    await message.answer(
+        "Now, please enter your <b>Surname (Last Name)</b>:\n\n"
+        "Endi, iltimos, <b>familiyangizni</b> kiriting:\n\n"
+        "Теперь, пожалуйста, введите вашу <b>фамилию</b>:"
+    )
+    await state.set_state(RegistrationFSM.entering_surname)
+
+@router.message(RegistrationFSM.entering_surname)
+async def process_surname(message: Message, state: FSMContext):
+    data = await state.get_data()
+    first_name = data['first_name']
+    surname = message.text.strip()
+    
+    # Save the user with their real names
     await db.register_user(
         user_id=message.from_user.id,
         username=message.from_user.username,
-        first_name=message.from_user.first_name
+        first_name=first_name,
+        surname=surname
     )
     
     await message.answer(
-        "Пожалуйста, выберите язык:\n\nPlease choose your language:\n\nIltimos, tilni tanlang:",
+        f"✅ <b>{first_name} {surname}</b>, thank you!\n\n"
+        "Пожалуйста, выберите язык:\nPlease choose your language:\nIltimos, tilni tanlang:",
         reply_markup=kb.initial_language_selection()
     )
     await state.set_state(RegistrationFSM.choosing_language)
+
+
+# =====================================================================
+#  Language Selection
+# =====================================================================
 
 @router.message(RegistrationFSM.choosing_language, F.text.in_(["Русский 🇷🇺", "English 🇬🇧", "O'zbekcha 🇺🇿"]))
 async def language_chosen(message: Message, state: FSMContext):
@@ -44,6 +103,11 @@ async def language_chosen(message: Message, state: FSMContext):
     await db.set_user_language(message.from_user.id, lang)
     await message.answer(_('welcome', lang), reply_markup=kb.main_menu(lang))
     await state.clear()
+
+
+# =====================================================================
+#  Main Menu Handlers
+# =====================================================================
 
 @router.message(F.text.in_([
     _('about', 'uz'), _('about', 'en'), _('about', 'ru')
@@ -69,7 +133,11 @@ async def handle_change_language(message: Message, state: FSMContext):
     )
     await state.set_state(RegistrationFSM.choosing_language)
 
-# Review FSM
+
+# =====================================================================
+#  Review FSM
+# =====================================================================
+
 @router.message(F.text.in_([
     _('review', 'uz'), _('review', 'en'), _('review', 'ru')
 ]))
@@ -103,11 +171,10 @@ async def review_comment_written(message: Message, state: FSMContext):
     rating = data['rating']
     review_text = message.text
     
-    # Ensure user is registered even if they started the bot before the DB update
-    await db.register_user(
+    # Safety net: ensure user record exists (never overwrites real names)
+    await db.ensure_user_exists(
         user_id=message.from_user.id,
-        username=message.from_user.username,
-        first_name=message.from_user.first_name
+        username=message.from_user.username
     )
     
     await db.save_review(message.from_user.id, service_name, rating, review_text)

@@ -17,12 +17,13 @@ async def init_db():
                 language TEXT DEFAULT 'uz'
             )
         ''')
-        # Users Table
+        # Users Table (includes surname column)
         await db.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
                 username TEXT,
                 first_name TEXT,
+                surname TEXT,
                 joined_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -38,6 +39,11 @@ async def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
         ''')
+        # Migration: add surname column to existing databases that lack it
+        try:
+            await db.execute('ALTER TABLE users ADD COLUMN surname TEXT')
+        except Exception:
+            pass  # Column already exists
         await db.commit()
 
 async def get_user_language(user_id: int) -> str:
@@ -55,12 +61,32 @@ async def set_user_language(user_id: int, language: str):
         ''', (user_id, language))
         await db.commit()
 
-async def register_user(user_id: int, username: str, first_name: str):
+async def user_exists(user_id: int) -> bool:
+    """Check if a user has already completed registration."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute('SELECT 1 FROM users WHERE user_id = ?', (user_id,)) as cursor:
+            row = await cursor.fetchone()
+            return row is not None
+
+async def register_user(user_id: int, username: str, first_name: str, surname: str = None):
+    """Full registration — inserts new user or updates all fields."""
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute('''
-            INSERT OR IGNORE INTO users (user_id, username, first_name)
-            VALUES (?, ?, ?)
-        ''', (user_id, username, first_name))
+            INSERT INTO users (user_id, username, first_name, surname)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET 
+                username  = excluded.username,
+                first_name = excluded.first_name,
+                surname   = excluded.surname
+        ''', (user_id, username, first_name, surname))
+        await db.commit()
+
+async def ensure_user_exists(user_id: int, username: str):
+    """Safety net — creates a minimal record if none exists. Never overwrites names."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('''
+            INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)
+        ''', (user_id, username))
         await db.commit()
 
 async def save_review(user_id: int, service_name: str, rating: int, review_text: str):

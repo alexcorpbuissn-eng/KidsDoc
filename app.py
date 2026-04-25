@@ -40,22 +40,17 @@ if os.path.exists("/home/KidsDoc"):
 else:
     DB_NAME = "clinic_bot.db"
 
-# --- Bot & Dispatcher (created once at module level) ---
 WEBHOOK_URL = "https://KidsDoc.pythonanywhere.com/webhook"
 
-session = AiohttpSession(proxy="http://proxy.server:3128")
-bot = Bot(
-    token=config.BOT_TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    session=session,
-)
+# --- Dispatcher (created once at module level) ---
 dp = Dispatcher()
 dp.include_router(router)
 
 # Initialize the database tables on first import
 asyncio.run(db.init_db())
 
-# --- Dashboard translations ---
+
+# --- Dashboard translations (with table header keys) ---
 TRANSLATIONS = {
     'en': {
         'title': '🏥 Clinic Bot Dashboard',
@@ -70,7 +65,19 @@ TRANSLATIONS = {
         'detailed_reviews': 'Detailed Reviews',
         'no_reviews': 'No reviews yet for',
         'user': 'User',
-        'rating': 'Rating'
+        'rating': 'Rating',
+        # Table headers — Users
+        'th_user_id': 'User ID',
+        'th_username': 'Username',
+        'th_first_name': 'First Name',
+        'th_surname': 'Surname',
+        'th_joined_date': 'Joined Date',
+        # Table headers — Reviews
+        'th_id': 'ID',
+        'th_name': 'Name',
+        'th_service': 'Service',
+        'th_review_text': 'Review Text',
+        'th_review_date': 'Review Date'
     },
     'ru': {
         'title': '🏥 Панель управления ботом клиники',
@@ -85,7 +92,19 @@ TRANSLATIONS = {
         'detailed_reviews': 'Подробные отзывы',
         'no_reviews': 'Пока нет отзывов для',
         'user': 'Пользователь',
-        'rating': 'Оценка'
+        'rating': 'Оценка',
+        # Table headers — Users
+        'th_user_id': 'ID пользователя',
+        'th_username': 'Имя пользователя',
+        'th_first_name': 'Имя',
+        'th_surname': 'Фамилия',
+        'th_joined_date': 'Дата регистрации',
+        # Table headers — Reviews
+        'th_id': '№',
+        'th_name': 'Имя',
+        'th_service': 'Услуга',
+        'th_review_text': 'Текст отзыва',
+        'th_review_date': 'Дата отзыва'
     },
     'uz': {
         'title': '🏥 Klinika boti paneli',
@@ -100,7 +119,19 @@ TRANSLATIONS = {
         'detailed_reviews': 'Batafsil sharhlar',
         'no_reviews': "Hozircha sharhlar yo'q:",
         'user': 'Foydalanuvchi',
-        'rating': 'Baho'
+        'rating': 'Baho',
+        # Table headers — Users
+        'th_user_id': 'Foydalanuvchi ID',
+        'th_username': 'Username',
+        'th_first_name': 'Ism',
+        'th_surname': 'Familiya',
+        'th_joined_date': "Ro'yxatdan o'tgan sana",
+        # Table headers — Reviews
+        'th_id': '№',
+        'th_name': 'Ism',
+        'th_service': 'Xizmat',
+        'th_review_text': 'Sharh matni',
+        'th_review_date': 'Sharh sanasi'
     }
 }
 
@@ -145,21 +176,23 @@ def dashboard():
         # Filter
         selected_service = request.args.get('service', t['all_services'])
 
-        # Reviews
+        # Reviews — now fetches surname and sorts newest-first
         if selected_service in (t['all_services'], 'All Services'):
             reviews = conn.execute('''
-                SELECT r.id, r.user_id, u.username, u.first_name,
+                SELECT r.id, r.user_id, u.username, u.first_name, u.surname,
                        r.service_name, r.rating, r.review_text, r.review_date
                 FROM reviews r
                 LEFT JOIN users u ON r.user_id = u.user_id
+                ORDER BY r.review_date DESC
             ''').fetchall()
         else:
             reviews = conn.execute('''
-                SELECT r.id, r.user_id, u.username, u.first_name,
+                SELECT r.id, r.user_id, u.username, u.first_name, u.surname,
                        r.service_name, r.rating, r.review_text, r.review_date
                 FROM reviews r
                 LEFT JOIN users u ON r.user_id = u.user_id
                 WHERE r.service_name = ?
+                ORDER BY r.review_date DESC
             ''', (selected_service,)).fetchall()
 
         total_reviews_filtered = len(reviews)
@@ -202,9 +235,24 @@ def webhook():
     """Receive Telegram updates and feed them to the aiogram Dispatcher."""
     try:
         json_data = request.get_json(force=True)
-        update = Update.model_validate(json_data, context={"bot": bot})
-        asyncio.run(dp.feed_update(bot=bot, update=update))
+        
+        async def process_update():
+            # Create fresh session and bot inside the new loop
+            session = AiohttpSession(proxy="http://proxy.server:3128")
+            bot = Bot(
+                token=config.BOT_TOKEN,
+                default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+                session=session,
+            )
+            # Process the message
+            update = Update.model_validate(json_data, context={"bot": bot})
+            await dp.feed_update(bot=bot, update=update)
+            # Close connection safely
+            await session.close()
+
+        asyncio.run(process_update())
         return jsonify({"ok": True}), 200
+        
     except Exception as e:
         logging.error(f"Webhook error: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -218,8 +266,15 @@ def webhook():
 def set_webhook():
     """Visit this URL once to register the webhook with Telegram."""
     try:
-        asyncio.run(bot.set_webhook(url=WEBHOOK_URL))
+        async def setup_hook():
+            session = AiohttpSession(proxy="http://proxy.server:3128")
+            bot = Bot(token=config.BOT_TOKEN, session=session)
+            await bot.set_webhook(url=WEBHOOK_URL)
+            await session.close()
+            
+        asyncio.run(setup_hook())
         return f"✅ Webhook successfully set to:<br><code>{WEBHOOK_URL}</code>", 200
+        
     except Exception as e:
         return f"❌ Failed to set webhook:<br>{e}", 500
 

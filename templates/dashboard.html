@@ -180,15 +180,17 @@
             
             <hr>
             
+            <!-- ==================== USERS TABLE ==================== -->
             <h3>{{ t.reg_users }}</h3>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>user_id</th>
-                            <th>username</th>
-                            <th>first_name</th>
-                            <th>joined_date</th>
+                            <th>{{ t.th_user_id }}</th>
+                            <th>{{ t.th_username }}</th>
+                            <th>{{ t.th_first_name }}</th>
+                            <th>{{ t.th_surname }}</th>
+                            <th>{{ t.th_joined_date }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -197,6 +199,7 @@
                             <td>{{ user.user_id }}</td>
                             <td>{% if user.username %}@{{ user.username }}{% else %}-{% endif %}</td>
                             <td>{{ user.first_name or '-' }}</td>
+                            <td>{{ user.surname or '-' }}</td>
                             <td>{{ user.joined_date }}</td>
                         </tr>
                         {% endfor %}
@@ -206,6 +209,7 @@
             
             <hr>
             
+            <!-- ==================== REVIEWS TABLE ==================== -->
             <h3>{{ t.feedback }}</h3>
             
             <div class="filter-section">
@@ -224,21 +228,19 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>id</th>
-                            <th>user_id</th>
-                            <th>username</th>
-                            <th>service_name</th>
+                            <th>{{ t.th_id }}</th>
+                            <th>{{ t.th_name }}</th>
+                            <th>{{ t.th_service }}</th>
                             <th>{{ t.rating }}</th>
-                            <th>Review Text</th>
-                            <th>review_date</th>
+                            <th>{{ t.th_review_text }}</th>
+                            <th>{{ t.th_review_date }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for r in reviews %}
                         <tr>
                             <td>{{ r.id }}</td>
-                            <td>{{ r.user_id }}</td>
-                            <td>{% if r.username %}@{{ r.username }}{% else %}-{% endif %}</td>
+                            <td>{% if r.first_name %}{{ r.first_name }}{% endif %} {% if r.surname %}{{ r.surname }}{% endif %}{% if not r.first_name and not r.surname %}-{% endif %}</td>
                             <td>{{ r.service_name }}</td>
                             <td>{{ r.rating }} ⭐</td>
                             <td>{{ r.review_text[:80] }}{% if r.review_text|length > 80 %}...{% endif %}</td>
@@ -249,6 +251,7 @@
                 </table>
             </div>
             
+            <!-- ==================== DETAILED REVIEW CARDS ==================== -->
             <h3>{{ t.detailed_reviews }}</h3>
             {% if reviews|length == 0 %}
                 <div class="empty-state">{{ t.no_reviews }} {{ selected_service }}.</div>
@@ -258,7 +261,7 @@
                     <div class="avatar">👤</div>
                     <div class="card-content">
                         <strong>{{ r.service_name|upper }}</strong> 
-                        ({{ t.user }}: {% if r.first_name %}{{ r.first_name }}{% else %}-{% endif %} {% if r.username %}@{{ r.username }}{% endif %})<br>
+                        ({{ t.user }}: {% if r.first_name %}{{ r.first_name }}{% endif %} {% if r.surname %}{{ r.surname }}{% endif %}{% if not r.first_name and not r.surname %}-{% endif %})<br>
                         <em>{{ r.review_date }}</em> | {{ t.rating }}: {{ r.rating }} ⭐
                         <div class="review-info" style="margin-top: 0.5rem;">
                             {{ r.review_text }}
